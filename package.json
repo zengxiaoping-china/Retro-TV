@@ -1,0 +1,39 @@
+{
+  "name": "retro-tv",
+  "version": "0.1.0",
+  "description": "复古电视模拟器 - Retro CRT TV desktop app",
+  "main": "src/main.js",
+  "author": "",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --inspect=5858",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^45.0.0",
+    "electron-builder": "^26.18.0"
+  },
+  "build": {
+    "appId": "com.example.retrotv",
+    "productName": "Retro TV",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "mac": {
+      "target": "dmg"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
+  }
+}

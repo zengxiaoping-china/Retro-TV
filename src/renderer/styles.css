@@ -1,0 +1,524 @@
+        *{margin:0;padding:0;box-sizing:border-box}
+        :root{
+            --wood-dk:#5C3317;--wood-md:#7B5233;--wood-lt:#8B6243;
+            --screen-bg:#080808;--led-off:#4a0000;--led-on:#ff1a1a;
+            --green:#00ff41;--green-dim:rgba(0,255,65,0.35);--amber:#ffb347;
+        }
+        html,body{background:transparent}
+        body{
+            height:100vh;display:flex;flex-direction:column;
+            align-items:center;justify-content:center;
+            background:transparent;
+            font-family:'ZCOOL QingKe HuangYou',sans-serif;
+            overflow:hidden;user-select:none;padding:16px 0;
+        }
+
+        .tv-container{position:relative;z-index:1;-webkit-app-region:drag}
+
+        .tv-body{
+            position:relative;
+            width:920px;
+            background:
+                repeating-linear-gradient(88deg,transparent 0px,rgba(0,0,0,0.04) 1px,transparent 3px),
+                linear-gradient(180deg,var(--wood-md) 0%,var(--wood-dk) 18%,var(--wood-md) 35%,
+                    var(--wood-lt) 52%,var(--wood-md) 70%,var(--wood-dk) 88%,var(--wood-md) 100%);
+            border-radius:16px;padding:34px 18px 18px;
+            box-shadow:0 8px 26px rgba(0,0,0,0.65),inset 0 1px 0 rgba(255,255,255,0.08),
+                inset 0 -1px 0 rgba(0,0,0,0.3)}
+
+        /* Mini window controls: icon-only, revealed when the pointer is near */
+        .window-controls{
+            position:absolute;top:0;right:6px;z-index:100;
+            height:34px;padding:0 10px;
+            display:flex;align-items:center;gap:10px;
+            -webkit-app-region:no-drag}
+        .win-btn{
+            width:20px;height:20px;padding:0;border:0;background:none;
+            color:rgba(255,255,255,0.82);cursor:pointer;
+            display:flex;align-items:center;justify-content:center;
+            opacity:0;pointer-events:none;
+            filter:drop-shadow(0 1px 2px rgba(0,0,0,0.75));
+            transition:opacity .2s,color .15s,transform .1s}
+        .window-controls:hover .win-btn,
+        .window-controls:focus-within .win-btn{opacity:1;pointer-events:auto}
+        .win-btn svg{width:13px;height:13px;fill:none;stroke:currentColor;
+            stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
+        .win-btn.pin svg{fill:currentColor;stroke:none}
+        .win-btn:hover{color:#fff}
+        .win-btn:active{transform:scale(.85)}
+        .win-btn.close:hover{color:#ff6b5a;
+            filter:drop-shadow(0 1px 2px rgba(0,0,0,0.75)) drop-shadow(0 0 6px rgba(255,80,60,0.6))}
+        .win-btn.pin.active{color:#5ff08a;
+            filter:drop-shadow(0 1px 2px rgba(0,0,0,0.75)) drop-shadow(0 0 5px rgba(74,222,128,0.7))}
+
+        .screen-bezel{
+            background:linear-gradient(180deg,#333 0%,#1a1a1a 30%,#222 70%,#333 100%);
+            border-radius:12px;padding:12px;
+            box-shadow:inset 0 2px 6px rgba(0,0,0,0.6),0 1px 0 rgba(255,255,255,0.04);
+            display:flex;align-items:center;justify-content:center;
+            -webkit-app-region:no-drag}
+
+        .screen{
+            position:relative;
+            background:var(--screen-bg);border-radius:18px;overflow:hidden;
+            box-shadow:inset 0 0 80px rgba(0,0,0,0.6);cursor:default;
+            transition:width .45s cubic-bezier(.4,0,.2,1),height .45s cubic-bezier(.4,0,.2,1)}
+        .screen-content{position:absolute;inset:0;z-index:2}
+        .screen video,.screen canvas{
+            position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain}
+        .screen canvas{display:none}
+        .screen canvas.active{display:block}
+        /* Channel-switch noise should fill the screen at the same size as the picture. */
+        .screen #staticCanvas{object-fit:cover}
+
+        /* Fullscreen */
+        .screen:-webkit-full-screen,
+        .screen:fullscreen{
+            width:100vw!important;height:100vh!important;border-radius:0!important;
+            transition:none!important}
+        /* Electron native fullscreen: lift the screen out of the TV body */
+        .screen.is-fullscreen{
+            position:fixed;inset:0;z-index:9999;
+            width:100vw!important;height:100vh!important;border-radius:0!important;
+            transition:none!important}
+
+        /* Overlay FS button */
+        .fs-overlay-btn{
+            position:absolute;top:14px;right:14px;z-index:30;
+            width:38px;height:38px;border-radius:8px;
+            background:rgba(0,0,0,0.45);border:1px solid rgba(255,255,255,0.1);
+            color:rgba(255,255,255,0.6);font-size:18px;cursor:pointer;
+            display:flex;align-items:center;justify-content:center;
+            opacity:0;transition:opacity .3s,background .2s,transform .15s;
+            backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+        .fs-overlay-btn .fs-icon{line-height:1;pointer-events:none}
+        .screen:hover .fs-overlay-btn{opacity:1}
+        .fs-overlay-btn:hover{background:rgba(0,0,0,0.7);color:#fff;transform:scale(1.08)}
+        .fs-overlay-btn:active{transform:scale(.92)}
+        .fs-overlay-btn.exit-fs .fs-icon::after{content:' ×';font-size:14px}
+
+        .exit-hint{
+            position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+            z-index:35;font-family:'Press Start 2P',monospace;font-size:10px;
+            color:rgba(255,255,255,0.7);text-shadow:0 0 12px rgba(0,0,0,0.8);
+            background:rgba(0,0,0,0.45);padding:10px 20px;border-radius:8px;
+            pointer-events:none;opacity:0;transition:opacity .5s;
+            backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);white-space:nowrap}
+        .exit-hint.show{opacity:1}
+
+        /* Drag & Drop */
+        .drop-overlay{
+            position:absolute;inset:0;z-index:50;
+            display:flex;flex-direction:column;align-items:center;justify-content:center;
+            background:rgba(0,0,0,0.85);opacity:0;pointer-events:none;transition:opacity .25s}
+        .drop-overlay.show{opacity:1;pointer-events:auto}
+        .drop-overlay .drop-icon{font-size:48px;margin-bottom:12px;opacity:.7}
+        .drop-overlay .drop-text{
+            font-family:'Press Start 2P',monospace;font-size:11px;
+            color:var(--green);text-shadow:0 0 10px var(--green-dim);text-align:center;line-height:2.2}
+        .drop-overlay .drop-hint{font-size:8px;color:#666;margin-top:10px;letter-spacing:1px}
+
+        /* File Slot */
+        .file-slot{
+            position:absolute;bottom:0;left:50%;transform:translateX(-50%);
+            z-index:20;width:200px;height:34px;
+            background:linear-gradient(180deg,#1a1a1a 0%,#111 50%,#1a1a1a 100%);
+            border-radius:6px 6px 0 0;
+            display:flex;align-items:center;justify-content:center;gap:7px;
+            cursor:pointer;
+            box-shadow:0 -2px 8px rgba(0,0,0,0.5),inset 0 1px 3px rgba(255,255,255,0.04);
+            opacity:0;pointer-events:none;transition:opacity .35s,background .2s}
+        .screen:hover .file-slot{opacity:1;pointer-events:auto}
+        .file-slot:hover{
+            background:linear-gradient(180deg,#222 0%,#181818 50%,#222 100%);
+            box-shadow:0 -2px 12px rgba(0,255,65,0.12),inset 0 1px 3px rgba(255,255,255,0.06)}
+        .file-slot:active{transform:translateX(-50%) scale(.97)}
+        .slot-line{
+            width:80px;height:2px;border-radius:2px;
+            background:linear-gradient(90deg,transparent,#444,#666,#444,transparent);transition:background .2s}
+        .file-slot:hover .slot-line{background:linear-gradient(90deg,transparent,#2a6,#4d4,#2a6,transparent)}
+        .slot-label{
+            font-family:'Press Start 2P',monospace;font-size:5.5px;
+            color:#555;letter-spacing:2px;transition:color .2s}
+        .file-slot:hover .slot-label{color:var(--green)}
+
+        /* Progress */
+        .progress-container{
+            position:absolute;bottom:34px;left:0;right:0;z-index:18;
+            height:32px;display:flex;align-items:flex-end;padding:0 10px 5px;
+            background:linear-gradient(0deg,rgba(0,0,0,0.75) 0%,transparent 100%);
+            opacity:0;transition:opacity .3s;pointer-events:auto;cursor:pointer}
+        .progress-container.show{opacity:1}
+        .progress-track{
+            width:100%;height:5px;background:rgba(255,255,255,0.12);
+            border-radius:3px;position:relative;overflow:hidden}
+        .progress-fill{
+            height:100%;background:var(--green);border-radius:3px;width:0%;
+            box-shadow:0 0 6px var(--green-dim);transition:width .1s linear}
+        .progress-time{
+            position:absolute;right:10px;bottom:10px;
+            font-family:'Press Start 2P',monospace;font-size:7px;
+            color:var(--green);text-shadow:0 0 4px var(--green-dim);opacity:0;transition:opacity .3s}
+        .progress-container:hover .progress-time{opacity:1}
+
+        /* CRT Animations */
+        @keyframes crt-on{
+            0%{clip-path:inset(49.2% 0 49.2% 0);filter:brightness(30)}
+            25%{clip-path:inset(49.2% 0 49.2% 0);filter:brightness(15)}
+            55%{clip-path:inset(8% 0 8% 0);filter:brightness(3)}
+            100%{clip-path:inset(0);filter:brightness(1)}}
+        @keyframes crt-off{
+            0%{clip-path:inset(0);filter:brightness(1)}
+            45%{clip-path:inset(48% 0 48% 0);filter:brightness(9)}
+            100%{clip-path:inset(50% 0 50% 0);filter:brightness(0)}}
+        @keyframes glow-off{
+            0%,30%{opacity:0;width:100%;height:2px;border-radius:2px}
+            42%{opacity:1;width:100%;height:3px;border-radius:2px}
+            68%{opacity:1;width:74%;height:2px;border-radius:2px}
+            84%{opacity:.95;width:11px;height:11px;border-radius:50%}
+            92%{opacity:.8;width:6px;height:6px;border-radius:50%}
+            100%{opacity:0;width:2px;height:2px;border-radius:50%}}
+        .powering-on{animation:crt-on .9s ease-out forwards}
+        .powering-off{animation:crt-off .85s ease-in forwards}
+        /* CRT shutdown: bright line collapsing into a fading dot */
+        .screen-off-glow{
+            position:absolute;left:50%;top:50%;z-index:45;
+            width:0;height:2px;transform:translate(-50%,-50%);
+            background:#eafcff;opacity:0;pointer-events:none;
+            box-shadow:0 0 14px 2px rgba(205,245,255,0.85),0 0 42px 10px rgba(120,200,255,0.35)}
+        .screen-off-glow.animate{animation:glow-off .85s ease-in forwards}
+        /* On-screen info must vanish together with the picture when powered off. */
+        .screen.powering-down .channel-display,
+        .screen.powering-down .file-name-display,
+        .screen.powering-down .ar-osd,
+        .screen.powering-down .volume-display,
+        .screen.powering-down .progress-container,
+        .screen.powering-down .loading-overlay{
+            opacity:0!important;transition:opacity .16s ease-out}
+
+        .scanlines{
+            position:absolute;inset:0;pointer-events:none;z-index:5;opacity:0;transition:opacity .3s;
+            background:repeating-linear-gradient(0deg,
+                transparent 0px,transparent 1px,rgba(0,0,0,0.28) 1px,rgba(0,0,0,0.28) 2px)}
+        .scanlines.active{opacity:1}
+        .rgb-overlay{
+            position:absolute;inset:0;pointer-events:none;z-index:4;opacity:0;transition:opacity .3s;
+            background:repeating-linear-gradient(90deg,
+                rgba(255,0,0,0.04) 0px,rgba(0,255,0,0.04) 1px,rgba(0,0,255,0.04) 2px,transparent 3px)}
+        .rgb-overlay.active{opacity:1}
+        .screen-glass{
+            position:absolute;inset:0;pointer-events:none;z-index:6;border-radius:inherit;
+            background:
+                radial-gradient(ellipse at 28% 18%,rgba(255,255,255,0.07) 0%,transparent 40%),
+                radial-gradient(ellipse at center,transparent 50%,rgba(0,0,0,0.55) 100%)}
+        @keyframes flicker{
+            0%,100%{opacity:1}3%{opacity:.97}6%{opacity:1}7.5%{opacity:.95}9%{opacity:1}
+            50%{opacity:1}52%{opacity:.98}53%{opacity:1}}
+        .screen.flickering .screen-content{animation:flicker 8s infinite}
+
+        /* OSD */
+        .channel-display,.volume-display,.file-name-display,.ar-osd{
+            position:absolute;font-family:'Press Start 2P',monospace;
+            z-index:15;opacity:0;transition:opacity .3s;pointer-events:none}
+        .channel-display{
+            top:18px;left:18px;font-size:16px;
+            color:var(--green);text-shadow:0 0 10px var(--green-dim),2px 2px 0 rgba(0,0,0,0.9)}
+        .volume-display{
+            bottom:52px;right:18px;font-size:9px;display:flex;align-items:center;gap:6px;
+            color:var(--green);text-shadow:0 0 10px var(--green-dim),2px 2px 0 rgba(0,0,0,0.9)}
+        .file-name-display{
+            top:18px;right:62px;font-size:7px;color:var(--amber);
+            text-shadow:0 0 8px rgba(255,179,71,0.3),2px 2px 0 rgba(0,0,0,0.9);
+            max-width:50%;text-align:right;word-break:break-all;line-height:1.6}
+        .ar-osd{
+            bottom:52px;left:18px;font-size:10px;color:var(--amber);
+            text-shadow:0 0 8px rgba(255,179,71,0.3),2px 2px 0 rgba(0,0,0,0.9);
+            letter-spacing:1px}
+        .channel-display.show,.volume-display.show,.file-name-display.show,.ar-osd.show{opacity:1}
+        .vol-bar-wrap{width:70px;height:7px;background:rgba(0,0,0,0.6);
+            border:1px solid rgba(0,255,65,0.25);border-radius:2px}
+        .vol-bar{height:100%;background:var(--green);border-radius:1px;
+            box-shadow:0 0 4px var(--green-dim);transition:width .15s}
+        .loading-overlay{
+            position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+            font-family:'Press Start 2P',monospace;font-size:12px;color:var(--green);
+            text-shadow:0 0 8px var(--green-dim);z-index:10;opacity:0;pointer-events:none;
+            background:rgba(0,0,0,0.3)}
+        .loading-overlay.show{opacity:1}
+
+        /* Brand Nameplate */
+        .brand-nameplate{
+            text-align:center;padding:7px 0 4px;
+            font-family:'Press Start 2P',monospace;font-size:9px;
+            color:#c0a060;letter-spacing:4px;text-shadow:0 1px 0 rgba(0,0,0,0.6)}
+
+        /* Control Panel */
+        .control-panel{
+            display:flex;align-items:flex-start;justify-content:space-between;
+            padding:14px 16px 8px;gap:8px;
+            background:linear-gradient(180deg,#2a2a2a 0%,#1c1c1c 100%);
+            border-radius:8px;margin-top:6px;
+            box-shadow:inset 0 1px 4px rgba(0,0,0,0.5);
+            -webkit-app-region:no-drag}
+        .ctrl-section{display:flex;flex-direction:column;align-items:center;gap:8px}
+        .ctrl-section.compact{gap:6px}
+        .ctrl-section label{font-size:10px;color:#777;letter-spacing:2px;text-transform:uppercase}
+        .power-row{display:flex;align-items:center;gap:10px}
+        .control-center{flex:1;min-width:0;align-self:stretch;
+            display:flex;flex-direction:column;align-items:center;gap:16px}
+        .knobs-row{display:flex;gap:32px}
+
+        .power-btn{
+            width:48px;height:48px;border-radius:50%;border:3px solid #555;
+            background:radial-gradient(circle at 38% 33%,#444,#1a1a1a);
+            cursor:pointer;display:flex;align-items:center;justify-content:center;
+            box-shadow:0 2px 6px rgba(0,0,0,0.5),inset 0 1px 2px rgba(255,255,255,0.08);
+            transition:all .15s}
+        .power-btn:hover{border-color:#777}
+        .power-btn:active{transform:scale(.94)}
+        .power-icon{font-size:20px;color:#666;line-height:1}
+        .power-btn.on .power-icon{color:#4ade80;text-shadow:0 0 10px rgba(74,222,128,0.5)}
+        .led{
+            width:8px;height:8px;border-radius:50%;background:var(--led-off);
+            box-shadow:inset 0 1px 2px rgba(0,0,0,0.5);transition:all .3s}
+        .led.on{
+            background:var(--led-on);
+            box-shadow:0 0 6px var(--led-on),0 0 16px rgba(255,26,26,0.3),inset 0 1px 2px rgba(255,255,255,0.3)}
+
+        .knob-area{display:flex;flex-direction:column;align-items:center;gap:5px}
+        .knob-area label{font-size:10px;color:#777;letter-spacing:2px}
+        .knob-row{display:flex;align-items:center;gap:6px}
+        .knob{
+            width:54px;height:54px;border-radius:50%;border:2px solid #444;
+            background:conic-gradient(from 0deg,#555,#888,#555,#333,#555,#888,#555,#333,#555);
+            position:relative;cursor:pointer;
+            box-shadow:0 3px 8px rgba(0,0,0,0.5),inset 0 0 8px rgba(0,0,0,0.3);
+            transition:transform .3s cubic-bezier(.34,1.56,.64,1)}
+        .knob::before{
+            content:'';position:absolute;inset:5px;border-radius:50%;
+            background:radial-gradient(circle at 38% 33%,#555,#2a2a2a);border:1px solid #333}
+        .knob-dot{
+            position:absolute;top:5px;left:50%;transform:translateX(-50%);
+            width:3px;height:12px;background:linear-gradient(180deg,#eee,#aaa);
+            border-radius:2px;z-index:1}
+        .knob-btn{
+            width:26px;height:26px;border-radius:50%;border:2px solid #555;
+            background:radial-gradient(circle at 38% 33%,#3a3a3a,#1a1a1a);
+            color:#888;font-size:11px;cursor:pointer;
+            display:flex;align-items:center;justify-content:center;
+            box-shadow:0 2px 4px rgba(0,0,0,0.4);transition:all .15s}
+        .knob-btn:hover{border-color:#777;color:#bbb}
+        .knob-btn:active{transform:scale(.88)}
+
+        .sel-group{display:flex;flex-direction:column;align-items:center;gap:4px}
+        .sel-group label{font-size:9px;color:#666;letter-spacing:1px}
+        .sel-row{display:flex;align-items:center;gap:5px}
+        .sel-btn{
+            width:22px;height:22px;border-radius:4px;border:1px solid #555;
+            background:radial-gradient(circle at 38% 33%,#3a3a3a,#1a1a1a);
+            color:#888;font-size:9px;cursor:pointer;
+            display:flex;align-items:center;justify-content:center;transition:all .15s}
+        .sel-btn:hover{border-color:#777;color:#ccc}
+        .sel-btn:active{transform:scale(.88)}
+        .sel-display{
+            font-family:'Press Start 2P',monospace;font-size:7px;
+            color:#00cc33;text-shadow:0 0 5px rgba(0,204,51,0.3);
+            min-width:60px;text-align:center;padding:3px 5px;
+            background:#080808;border:1px solid #333;border-radius:3px;
+            white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+        .fs-ctrl-btn{
+            width:36px;height:36px;border-radius:6px;border:2px solid #444;
+            background:radial-gradient(circle at 38% 33%,#333,#181818);
+            color:#777;font-size:14px;cursor:pointer;
+            display:flex;align-items:center;justify-content:center;
+            box-shadow:0 2px 4px rgba(0,0,0,0.4);transition:all .15s}
+        .fs-ctrl-btn:hover{border-color:#888;color:#ccc}
+        .fs-ctrl-btn:active{transform:scale(.9)}
+        .fs-ctrl-btn svg{width:17px;height:17px;fill:none;stroke:currentColor;
+            stroke-width:1.6;stroke-linejoin:round;pointer-events:none}
+        .fs-row{display:flex;align-items:center;gap:6px}
+
+        /* Speaker Grille */
+        .speaker-grille{
+            margin-top:6px;padding:8px 30px;
+            background:linear-gradient(180deg,#222 0%,#1a1a1a 100%);
+            border-radius:6px;box-shadow:inset 0 1px 3px rgba(0,0,0,0.5);
+            -webkit-app-region:no-drag}
+        .grille-pattern{height:34px;
+            background:repeating-linear-gradient(0deg,
+                #1a1a1a 0px,#1a1a1a 2px,#333 2px,#333 3px,
+                #1a1a1a 3px,#1a1a1a 5px,#2a2a2a 5px,#2a2a2a 6px);
+            -webkit-mask-image:linear-gradient(90deg,transparent 5%,black 15%,black 85%,transparent 95%);
+            mask-image:linear-gradient(90deg,transparent 5%,black 15%,black 85%,transparent 95%)}
+
+        .tv-feet{display:flex;justify-content:space-between;padding:0 120px;margin-top:-2px}
+        .tv-foot{
+            width:55px;height:14px;
+            background:linear-gradient(180deg,var(--wood-md),var(--wood-dk));
+            border-radius:0 0 8px 8px;box-shadow:0 4px 8px rgba(0,0,0,0.3)}
+
+        #fileInput{display:none}
+
+        .instructions{
+            width:100%;max-width:660px;margin:auto 0 0;padding-top:0;
+            text-align:center;color:#8a8a8a;font-size:10.6px;
+            letter-spacing:.5px;line-height:2}
+        .instructions kbd{
+            background:#111;padding:2px 5px;border-radius:4px;border:1px solid #3a3a3a;
+            font-family:'Press Start 2P',monospace;font-size:7.2px;color:#a8a8a8}
+        .instructions .tip{color:#6f6f6f;font-size:9.8px;margin-top:5px;line-height:1.7;letter-spacing:.3px}
+
+        /* ===== Settings modal ===== */
+        .hidden{display:none!important}
+        .modal-backdrop{
+            position:fixed;inset:0;z-index:10000;display:flex;
+            align-items:center;justify-content:center;padding:20px;
+            background:rgba(0,0,0,0.66);
+            -webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);
+            -webkit-app-region:no-drag}
+        @keyframes modal-in{
+            from{opacity:0;transform:scale(.96) translateY(8px)}
+            to{opacity:1;transform:scale(1) translateY(0)}}
+        .modal-backdrop:not(.hidden) .settings-modal{animation:modal-in .18s ease-out}
+        .settings-modal{
+            width:760px;max-width:100%;max-height:88vh;
+            display:flex;flex-direction:column;overflow:hidden;
+            background:linear-gradient(180deg,#242424 0%,#141414 100%);
+            border:1px solid #3a3a3a;border-radius:12px;
+            color:#ccc;font-family:'ZCOOL QingKe HuangYou',sans-serif;
+            box-shadow:0 18px 50px rgba(0,0,0,0.75),inset 0 1px 0 rgba(255,255,255,0.06)}
+        .modal-header{
+            display:flex;align-items:center;justify-content:space-between;
+            padding:12px 16px;flex:0 0 auto;
+            background:linear-gradient(180deg,#2e2e2e 0%,#1e1e1e 100%);
+            border-bottom:1px solid #3a3a3a}
+        .modal-header h2{
+            font-family:'Press Start 2P',monospace;font-size:11px;
+            color:#00cc33;letter-spacing:2px;
+            text-shadow:0 0 8px rgba(0,204,51,0.35)}
+        .modal-close{
+            width:26px;height:26px;border:1px solid #444;border-radius:5px;
+            background:#1a1a1a;color:#999;font-size:12px;cursor:pointer;
+            display:flex;align-items:center;justify-content:center;transition:all .15s}
+        .modal-close:hover{border-color:#ff6b5a;color:#ff6b5a}
+        .modal-close:active{transform:scale(.9)}
+        .modal-body{flex:1;min-height:0;display:flex}
+        .channel-list-pane{
+            width:230px;flex:0 0 230px;min-height:0;
+            display:flex;flex-direction:column;gap:8px;padding:12px;
+            border-right:1px solid #2e2e2e;background:rgba(0,0,0,0.25)}
+        .pane-title{
+            font-size:11px;color:#777;letter-spacing:2px;
+            text-transform:uppercase;flex:0 0 auto}
+        .channel-list{
+            flex:1;min-height:0;overflow-y:auto;list-style:none;
+            display:flex;flex-direction:column;gap:4px}
+        .channel-item{
+            display:flex;align-items:center;gap:6px;
+            padding:7px 8px;border-radius:5px;
+            border:1px solid transparent;cursor:pointer;
+            background:rgba(255,255,255,0.03);transition:background .15s,border-color .15s}
+        .channel-item:hover{background:rgba(255,255,255,0.07)}
+        .channel-item.active{
+            border-color:#00cc33;background:rgba(0,204,51,0.12);
+            box-shadow:inset 0 0 10px rgba(0,204,51,0.15)}
+        .channel-item .ch-num{
+            font-family:'Press Start 2P',monospace;font-size:7px;
+            color:#4d4;flex:0 0 auto}
+        .channel-item .ch-name{
+            flex:1;min-width:0;font-size:12px;color:#bbb;
+            white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .channel-item.active .ch-name{color:#e8e8e8}
+        .channel-item .ch-tag{
+            flex:0 0 auto;font-size:9px;color:#777;
+            padding:1px 4px;border:1px solid #3a3a3a;border-radius:3px}
+        .channel-item .ch-del{
+            width:16px;height:16px;flex:0 0 auto;border:0;border-radius:3px;
+            background:none;color:#666;font-size:10px;cursor:pointer;
+            display:flex;align-items:center;justify-content:center;transition:all .15s}
+        .channel-item .ch-del:hover:not(:disabled){color:#ff6b5a;background:rgba(255,107,90,0.12)}
+        .channel-item .ch-del:disabled{opacity:.25;cursor:not-allowed}
+        .edit-pane{
+            flex:1;min-width:0;min-height:0;overflow-y:auto;
+            display:flex;flex-direction:column;gap:12px;padding:14px 16px}
+        .field-row{display:flex;align-items:center;gap:10px}
+        .field-label{
+            width:70px;flex:0 0 70px;font-size:11px;color:#777;letter-spacing:1px}
+        .text-input{
+            flex:1;min-width:0;padding:7px 9px;
+            background:#0a0a0a;border:1px solid #333;border-radius:5px;
+            color:#ddd;font-size:13px;font-family:inherit;
+            outline:none;user-select:text;transition:border-color .15s,box-shadow .15s}
+        .text-input:focus{
+            border-color:#00a32a;box-shadow:0 0 0 1px rgba(0,204,51,0.25)}
+        .seg{display:flex;gap:4px}
+        .seg-btn{
+            padding:6px 12px;border:1px solid #444;border-radius:5px;
+            background:#161616;color:#999;font-size:12px;font-family:inherit;
+            cursor:pointer;transition:all .15s}
+        .seg-btn:hover{border-color:#666;color:#ccc}
+        .seg-btn.active{
+            border-color:#00cc33;color:#00ff41;
+            background:rgba(0,204,51,0.12);
+            box-shadow:0 0 8px rgba(0,204,51,0.18) inset}
+        .select{
+            min-width:160px;padding:7px 9px;
+            background:#0a0a0a;border:1px solid #333;border-radius:5px;
+            color:#ddd;font-size:12px;font-family:inherit;
+            outline:none;cursor:pointer;user-select:text}
+        .select:focus{border-color:#00a32a}
+        .playlist-section{display:flex;flex-direction:column;gap:8px;flex:1;min-height:0}
+        .playlist-head{display:flex;align-items:center;gap:10px}
+        .playlist-items{
+            list-style:none;display:flex;flex-direction:column;gap:4px;
+            max-height:280px;overflow-y:auto;min-height:0;
+            padding:8px;border:1px solid #2c2c2c;border-radius:6px;
+            background:rgba(0,0,0,0.3)}
+        .playlist-item{
+            display:flex;align-items:center;gap:8px;padding:5px 8px;
+            border-radius:4px;background:rgba(255,255,255,0.04);font-size:12px}
+        .playlist-item .kind{
+            flex:0 0 auto;font-family:'Press Start 2P',monospace;font-size:6px;
+            padding:3px 4px;border-radius:3px;border:1px solid #3a3a3a;color:#8a8a8a}
+        .playlist-item .p-name{
+            flex:1;min-width:0;color:#bbb;
+            white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .playlist-item .p-del{
+            width:18px;height:18px;flex:0 0 auto;border:0;border-radius:3px;
+            background:none;color:#666;font-size:10px;cursor:pointer;
+            display:flex;align-items:center;justify-content:center;transition:all .15s}
+        .playlist-item .p-del:hover{color:#ff6b5a;background:rgba(255,107,90,0.12)}
+        .playlist-empty{
+            padding:12px 0;text-align:center;color:#666;font-size:11px}
+        .pane-hint{font-size:10px;color:#666;letter-spacing:.3px;line-height:1.7}
+        .modal-footer{
+            display:flex;align-items:center;gap:8px;
+            padding:10px 16px;flex:0 0 auto;
+            border-top:1px solid #333;background:rgba(0,0,0,0.3)}
+        .modal-hint{flex:1;min-width:0;font-size:10.5px;color:#666;letter-spacing:.3px}
+        .btn{
+            padding:7px 14px;border:1px solid #444;border-radius:5px;
+            background:#1a1a1a;color:#bbb;font-size:12px;font-family:inherit;
+            cursor:pointer;transition:all .15s;white-space:nowrap}
+        .btn:hover{border-color:#777;color:#eee}
+        .btn:active{transform:scale(.96)}
+        .btn.small{padding:5px 9px;font-size:11px}
+        .btn.primary{
+            border-color:#00a32a;background:linear-gradient(180deg,#00a32a,#007a20);
+            color:#eaffea;text-shadow:0 1px 0 rgba(0,0,0,0.4)}
+        .btn.primary:hover{border-color:#00cc33;background:linear-gradient(180deg,#00bf31,#009025)}
+        .btn.ghost{background:transparent}
+        .channel-list::-webkit-scrollbar,
+        .playlist-items::-webkit-scrollbar,
+        .edit-pane::-webkit-scrollbar{width:8px}
+        .channel-list::-webkit-scrollbar-thumb,
+        .playlist-items::-webkit-scrollbar-thumb,
+        .edit-pane::-webkit-scrollbar-thumb{
+            background:#3a3a3a;border-radius:4px}
+        .channel-list::-webkit-scrollbar-thumb:hover,
+        .playlist-items::-webkit-scrollbar-thumb:hover,
+        .edit-pane::-webkit-scrollbar-thumb:hover{background:#4a4a4a}
+        .channel-list::-webkit-scrollbar-track,
+        .playlist-items::-webkit-scrollbar-track,
+        .edit-pane::-webkit-scrollbar-track{background:transparent}
